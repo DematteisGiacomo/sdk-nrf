@@ -1,0 +1,31 @@
+/*
+ * Copyright (c) 2026 Nordic Semiconductor ASA
+ * SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
+ */
+
+#include "../../../dts/boot_mode.dtsi"
+
+/ {
+	chosen {
+		zephyr,code-partition = &boot_partition;
+		zephyr,flash-controller = &mram1x_controller;
+		zephyr,uart-mcumgr = &uart132;
+	};
+
+	aliases {
+		mcuboot-button0 = &button0;
+	};
+};
+
+&uart132 {
+	status = "okay";
+	memory-regions = <&cpuapp_dma_region>;
+};
+
+/* Required for CONFIG_IRONSIDE_SE_CALL_MINIMAL in MCUboot on nRF92. */
+/delete-node/ &cpusec_bellboard;
+/delete-node/ &cpusec_cpuapp_ipc;
+
+&cpuapp_bellboard {
+	nordic,interrupt-mapping = <0x00000040 0>;
+};

@@ -32,6 +32,7 @@ The following categories of samples are available:
    ../../../samples/dfu/dfu_multi_image/README
    ../../../samples/dfu/dfu_target/README
    ../../../samples/dfu/single_slot/README
+   ../../../samples/dfu/nrf9251_smp_single_slot/README
 
 .. toctree::
    :maxdepth: 1

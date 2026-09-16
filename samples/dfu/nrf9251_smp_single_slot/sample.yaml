@@ -1,0 +1,25 @@
+##
+# Copyright (c) 2026 Nordic Semiconductor ASA
+#
+# SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
+#
+
+sample:
+  name: nRF9251 SMP single-slot DFU sample
+  description: Single-slot application update using MCUboot serial recovery over UART
+common:
+  sysbuild: true
+  harness: console
+  harness_config:
+    type: one_line
+    regex:
+      - "nRF9251 SMP single-slot sample, firmware version"
+  tags:
+    - ci_samples_dfu
+tests:
+  sample.dfu.nrf9251_smp_single_slot:
+    build_only: true
+    platform_allow:
+      - nrf9251dk/nrf9251/cpuapp
+    integration_platforms:
+      - nrf9251dk/nrf9251/cpuapp
