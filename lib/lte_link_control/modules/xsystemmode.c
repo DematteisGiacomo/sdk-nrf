@@ -25,6 +25,7 @@ LOG_MODULE_DECLARE(lte_lc, CONFIG_LTE_LINK_CONTROL_LOG_LEVEL);
 #define AT_XSYSTEMMODE_READ_GPS_INDEX		3
 #define AT_XSYSTEMMODE_READ_NTN_NBIOT_INDEX	4
 #define AT_XSYSTEMMODE_READ_PREFERENCE_INDEX	5
+#define AT_XSYSTEMMODE_READ_NTN_TDD_NBIOT_INDEX	6
 
 /* Internal system mode value used when CONFIG_LTE_NETWORK_MODE_DEFAULT is enabled. */
 #define LTE_LC_SYSTEM_MODE_DEFAULT 0xff
@@ -86,6 +87,7 @@ int xsystemmode_mode_set(enum lte_lc_system_mode mode,
 	case LTE_LC_SYSTEM_MODE_LTEM_NBIOT:
 	case LTE_LC_SYSTEM_MODE_LTEM_NBIOT_GPS:
 	case LTE_LC_SYSTEM_MODE_NTN_NBIOT:
+	case LTE_LC_SYSTEM_MODE_NTN_TDD_NBIOT:
 		break;
 	default:
 		LOG_ERR("Invalid system mode requested: %d", mode);
@@ -104,14 +106,16 @@ int xsystemmode_mode_set(enum lte_lc_system_mode mode,
 		return -EINVAL;
 	}
 
-	if (mode == LTE_LC_SYSTEM_MODE_NTN_NBIOT) {
-		if (preference != LTE_LC_SYSTEM_MODE_PREFER_AUTO) {
-			LOG_ERR("LTE preference must be LTE_LC_SYSTEM_MODE_PREFER_AUTO with "
-				"NTN NB-IoT");
-			return -EINVAL;
-		}
+	if ((mode == LTE_LC_SYSTEM_MODE_NTN_NBIOT || mode == LTE_LC_SYSTEM_MODE_NTN_TDD_NBIOT) &&
+	    preference != LTE_LC_SYSTEM_MODE_PREFER_AUTO) {
+		LOG_ERR("LTE preference must be LTE_LC_SYSTEM_MODE_PREFER_AUTO with NTN NB-IoT");
+		return -EINVAL;
+	}
 
+	if (mode == LTE_LC_SYSTEM_MODE_NTN_NBIOT) {
 		err = nrf_modem_at_printf("AT%%XSYSTEMMODE=0,0,0,0,1");
+	} else if (mode == LTE_LC_SYSTEM_MODE_NTN_TDD_NBIOT) {
+		err = nrf_modem_at_printf("AT%%XSYSTEMMODE=0,0,0,0,0,1");
 	} else {
 		err = nrf_modem_at_printf("AT%%XSYSTEMMODE=%s,%c", system_mode_params[mode],
 			system_mode_preference[preference]);
@@ -139,14 +143,16 @@ int xsystemmode_mode_get(enum lte_lc_system_mode *mode,
 	int gps_mode = 0;
 	int mode_preference = 0;
 	int ntn_nbiot_mode = 0;
+	int ntn_tdd_nbiot_mode = 0;
 
 	if (mode == NULL) {
 		return -EINVAL;
 	}
 
-	/* It's expected to have 4 or 5 arguments matched */
-	err = nrf_modem_at_scanf(AT_XSYSTEMMODE_READ, "%%XSYSTEMMODE: %d,%d,%d,%d,%d", &ltem_mode,
-				 &nbiot_mode, &gps_mode, &mode_preference, &ntn_nbiot_mode);
+	/* It's expected to have 4 to 6 arguments matched */
+	err = nrf_modem_at_scanf(AT_XSYSTEMMODE_READ, "%%XSYSTEMMODE: %d,%d,%d,%d,%d,%d",
+				 &ltem_mode, &nbiot_mode, &gps_mode, &mode_preference,
+				 &ntn_nbiot_mode, &ntn_tdd_nbiot_mode);
 	if (err < 4) {
 		LOG_ERR("Failed to get system mode, error: %d", err);
 		return -EFAULT;
@@ -155,7 +161,8 @@ int xsystemmode_mode_get(enum lte_lc_system_mode *mode,
 	mode_bitmask = (ltem_mode ? BIT(AT_XSYSTEMMODE_READ_LTEM_INDEX) : 0) |
 		       (nbiot_mode ? BIT(AT_XSYSTEMMODE_READ_NBIOT_INDEX) : 0) |
 		       (gps_mode ? BIT(AT_XSYSTEMMODE_READ_GPS_INDEX) : 0) |
-		       (ntn_nbiot_mode ? BIT(AT_XSYSTEMMODE_READ_NTN_NBIOT_INDEX) : 0);
+		       (ntn_nbiot_mode ? BIT(AT_XSYSTEMMODE_READ_NTN_NBIOT_INDEX) : 0) |
+		       (ntn_tdd_nbiot_mode ? BIT(AT_XSYSTEMMODE_READ_NTN_TDD_NBIOT_INDEX) : 0);
 
 	switch (mode_bitmask) {
 	case BIT(AT_XSYSTEMMODE_READ_LTEM_INDEX):
@@ -182,6 +189,9 @@ int xsystemmode_mode_get(enum lte_lc_system_mode *mode,
 		break;
 	case (BIT(AT_XSYSTEMMODE_READ_NTN_NBIOT_INDEX)):
 		*mode = LTE_LC_SYSTEM_MODE_NTN_NBIOT;
+		break;
+	case (BIT(AT_XSYSTEMMODE_READ_NTN_TDD_NBIOT_INDEX)):
+		*mode = LTE_LC_SYSTEM_MODE_NTN_TDD_NBIOT;
 		break;
 	default:
 		LOG_ERR("Invalid system mode, assuming parsing error");

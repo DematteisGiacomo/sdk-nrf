@@ -146,7 +146,14 @@ enum lte_lc_system_mode {
 	 * @note This is only supported by the following modem firmware:
 	 *       - mfw_nrf9151-ntn
 	 */
-	LTE_LC_SYSTEM_MODE_NTN_NBIOT
+	LTE_LC_SYSTEM_MODE_NTN_NBIOT,
+
+	/**
+	 * NTN TDD NB-IoT only.
+	 *
+	 * @note This is only supported by modem firmware with NTN TDD support.
+	 */
+	LTE_LC_SYSTEM_MODE_NTN_TDD_NBIOT
 };
 
 /**

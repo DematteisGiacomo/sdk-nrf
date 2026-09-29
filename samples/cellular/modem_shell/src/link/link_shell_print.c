@@ -169,6 +169,7 @@ const char *link_shell_sysmode_to_string(int sysmode, char *out_str_buff)
 		{ LTE_LC_SYSTEM_MODE_LTEM_NBIOT, "LTE-M - NB-IoT" },
 		{ LTE_LC_SYSTEM_MODE_LTEM_NBIOT_GPS, "LTE-M - NB-IoT - GNSS" },
 		{ LTE_LC_SYSTEM_MODE_NTN_NBIOT, "NTN NB-IoT" },
+		{ LTE_LC_SYSTEM_MODE_NTN_TDD_NBIOT, "NTN TDD NB-IoT" },
 		{ LINK_SYSMODE_NONE, "None" },
 		{ -1, NULL }
 	};

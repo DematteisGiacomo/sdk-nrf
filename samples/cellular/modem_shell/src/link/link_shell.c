@@ -131,6 +131,7 @@ static const char link_sysmode_usage_str[] =
 	"  -N, --nbiot_gnss,       Set NB-IoT + GNSS system mode\n"
 	"      --ltem_nbiot_gnss,  Set LTE-M + NB-IoT + GNSS system mode\n"
 	"      --ntn,              Set NTN NB-IoT system mode\n"
+	"      --ntn_tdd,          Set NTN TDD NB-IoT system mode\n"
 	"  -h, --help,             Shows this help information\n"
 	"\n"
 	"Additional LTE mode preference that can be optionally given\n"
@@ -422,6 +423,7 @@ enum {
 	LINK_SHELL_OPT_SYSMODE_LTEM_NBIOT,
 	LINK_SHELL_OPT_SYSMODE_LTEM_NBIOT_GNSS,
 	LINK_SHELL_OPT_SYSMODE_NTN,
+	LINK_SHELL_OPT_SYSMODE_NTN_TDD,
 	LINK_SHELL_OPT_SYSMODE_PREF_AUTO,
 	LINK_SHELL_OPT_SYSMODE_PREF_LTEM,
 	LINK_SHELL_OPT_SYSMODE_PREF_NBIOT,
@@ -522,6 +524,7 @@ static struct sys_getopt_option long_options[] = {
 	{"ltem_nbiot", sys_getopt_no_argument, 0, LINK_SHELL_OPT_SYSMODE_LTEM_NBIOT},
 	{"ltem_nbiot_gnss", sys_getopt_no_argument, 0, LINK_SHELL_OPT_SYSMODE_LTEM_NBIOT_GNSS},
 	{"ntn", sys_getopt_no_argument, 0, LINK_SHELL_OPT_SYSMODE_NTN},
+	{"ntn_tdd", sys_getopt_no_argument, 0, LINK_SHELL_OPT_SYSMODE_NTN_TDD},
 	{"pref_auto", sys_getopt_no_argument, 0, LINK_SHELL_OPT_SYSMODE_PREF_AUTO},
 	{"pref_ltem", sys_getopt_no_argument, 0, LINK_SHELL_OPT_SYSMODE_PREF_LTEM},
 	{"pref_nbiot", sys_getopt_no_argument, 0, LINK_SHELL_OPT_SYSMODE_PREF_NBIOT},
@@ -2833,6 +2836,9 @@ static int link_shell_sysmode(const struct shell *shell, size_t argc, char **arg
 			break;
 		case LINK_SHELL_OPT_SYSMODE_NTN:
 			sysmode_option = LTE_LC_SYSTEM_MODE_NTN_NBIOT;
+			break;
+		case LINK_SHELL_OPT_SYSMODE_NTN_TDD:
+			sysmode_option = LTE_LC_SYSTEM_MODE_NTN_TDD_NBIOT;
 			break;
 		case LINK_SHELL_OPT_SYSMODE_PREF_AUTO:
 			sysmode_lte_pref_option = LTE_LC_SYSTEM_MODE_PREFER_AUTO;
