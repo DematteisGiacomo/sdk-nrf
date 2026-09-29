@@ -31,7 +31,7 @@ int sock_open_and_connect(
 
 int sock_send_data(
 	int socket_id, char *data, int data_length, int interval, bool packet_number_prefix,
-	bool blocking, int flags, int buffer_size, bool data_format_hex);
+	bool blocking, int flags, int buffer_size, bool data_format_hex, bool msg_ack);
 
 int sock_recv(
 	int socket_id, bool receive_start, int data_length, bool blocking,

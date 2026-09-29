@@ -90,7 +90,7 @@ static const char sock_getaddrinfo_usage_str[] =
 
 static const char sock_send_usage_str[] =
 	"Usage: sock send -i <socket id> [-d <data> | -l <data length>] [-e <interval>]\n"
-	"       [--packet_number_prefix] [-B <blocking>] [-s <size>] [-x] [-W]\n"
+	"       [--packet_number_prefix] [-B <blocking>] [-s <size>] [-x] [-W] [--msg_ack]\n"
 	"Options:\n"
 	"  -i, --id, [int]           Socket id. Use 'sock list' command to see open\n"
 	"                            sockets.\n"
@@ -125,6 +125,11 @@ static const char sock_send_usage_str[] =
 	"                            has been sent on-air and acknowledged by the peer,\n"
 	"                            if required by the network protocol. This is not valid\n"
 	"                            when -B0 (non-blocking mode) is used.\n"
+	"      --msg_ack             Enable message ACK mode for the socket. Given data (-d)\n"
+	"                            is sent as '<data>-<id>' with a sequential id.\n"
+	"                            Received '<data>-<id>' is replied with 'ACK-<id>' and\n"
+	"                            received 'ACK-<id>' is reported as delivered.\n"
+	"                            Without -d, only enables the mode (receiving side).\n"
 	"  -h, --help,               Shows this help information";
 
 static const char sock_recv_usage_str[] =
@@ -248,6 +253,7 @@ static const char sock_level_list_str[] =
 #define SOCK_SHELL_OPT_RAI_WAIT_MORE 204
 #define SOCK_SHELL_OPT_PACKET_NUMBER_PREFIX 205
 #define SOCK_SHELL_OPT_SOCKET_OPTION_LEVEL 206
+#define SOCK_SHELL_OPT_MSG_ACK 207
 
 /* Specifying the expected options (both long and short) */
 static struct sys_getopt_option long_options[] = {
@@ -279,6 +285,7 @@ static struct sys_getopt_option long_options[] = {
 	{ "value",          sys_getopt_required_argument, 0, 'v' },
 	{ "level",          sys_getopt_required_argument, 0, SOCK_SHELL_OPT_SOCKET_OPTION_LEVEL },
 	{ "packet_number_prefix", sys_getopt_no_argument, 0, SOCK_SHELL_OPT_PACKET_NUMBER_PREFIX },
+	{ "msg_ack",        sys_getopt_no_argument,       0, SOCK_SHELL_OPT_MSG_ACK },
 	{ "rai_last",       sys_getopt_no_argument,       0, SOCK_SHELL_OPT_RAI_LAST },
 	{ "rai_no_data",    sys_getopt_no_argument,       0, SOCK_SHELL_OPT_RAI_NO_DATA },
 	{ "rai_one_resp",   sys_getopt_no_argument,       0, SOCK_SHELL_OPT_RAI_ONE_RESP },
@@ -677,6 +684,7 @@ static int cmd_sock_send(const struct shell *shell, size_t argc, char **argv)
 	int arg_data_length = 0;
 	int arg_data_interval = SOCK_SEND_DATA_INTERVAL_NONE;
 	bool arg_packet_number_prefix = false;
+	bool arg_msg_ack = false;
 	int arg_buffer_size = SOCK_BUFFER_SIZE_NONE;
 	bool arg_data_format_hex = false;
 	bool arg_blocking_send = true;
@@ -745,6 +753,9 @@ static int cmd_sock_send(const struct shell *shell, size_t argc, char **argv)
 		case SOCK_SHELL_OPT_PACKET_NUMBER_PREFIX:
 			arg_packet_number_prefix = true;
 			break;
+		case SOCK_SHELL_OPT_MSG_ACK:
+			arg_msg_ack = true;
+			break;
 
 		case 'h':
 			goto show_usage;
@@ -769,7 +780,8 @@ static int cmd_sock_send(const struct shell *shell, size_t argc, char **argv)
 		arg_blocking_send,
 		arg_flags,
 		arg_buffer_size,
-		arg_data_format_hex);
+		arg_data_format_hex,
+		arg_msg_ack);
 
 	return err;
 

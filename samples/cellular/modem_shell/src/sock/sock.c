@@ -7,6 +7,7 @@
 #include <zephyr/shell/shell.h>
 #include <assert.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <netdb.h>
 #include <poll.h>
@@ -76,6 +77,11 @@ struct sock_info {
 	uint32_t recv_data_len_expected;
 	bool recv_start_throughput;
 	enum sock_recv_print_format recv_print_format;
+	bool msg_ack;
+	uint32_t msg_id;
+	/* ACK is sent from workqueue as receive thread stack is too small for it */
+	struct k_work msg_ack_work;
+	char msg_ack_str[16];
 	struct addrinfo *addrinfo;
 	struct data_transfer_info send_info;
 };
@@ -94,6 +100,11 @@ static void sock_info_clear(struct sock_info *socket_info)
 	if (k_work_delayable_busy_get(&socket_info->send_info.work) > 0) {
 		k_work_cancel_delayable(&socket_info->send_info.work);
 		mosh_print("Socket data send periodic stop");
+	}
+	if (socket_info->msg_ack) {
+		struct k_work_sync sync;
+
+		k_work_cancel_sync(&socket_info->msg_ack_work, &sync);
 	}
 	if (socket_info->send_buffer != NULL) {
 		free(socket_info->send_buffer);
@@ -876,6 +887,15 @@ static void sock_send_random_data_length(struct sock_info *socket_info)
 	print_throughput_summary(socket_info->send_bytes_sent, ul_time_ms);
 }
 
+static void sock_msg_ack_work_handler(struct k_work *item)
+{
+	struct sock_info *socket_info = CONTAINER_OF(item, struct sock_info, msg_ack_work);
+
+	(void)sock_send_data(socket_info->id, socket_info->msg_ack_str, 0,
+			     SOCK_SEND_DATA_INTERVAL_NONE, false, true, 0, SOCK_BUFFER_SIZE_NONE,
+			     false, false);
+}
+
 int sock_send_data(
 	int socket_id,
 	char *data,
@@ -885,16 +905,40 @@ int sock_send_data(
 	bool blocking,
 	int flags,
 	int buffer_size,
-	bool data_format_hex)
+	bool data_format_hex,
+	bool msg_ack)
 {
 	struct sock_info *socket_info = get_socket_info_by_id(socket_id);
 	/* Process data to be sent based on input parameters */
 	int data_out_length = strlen(data);
 	uint8_t *data_out = data;
 	uint8_t data_out_hex[SOCK_MAX_SEND_DATA_LEN / 2 + 1] = { 0 };
+	char data_out_msg[SOCK_MAX_SEND_DATA_LEN + 12];
 
 	if (socket_info == NULL) {
 		return -EINVAL;
+	}
+
+	if (msg_ack) {
+		if (data_format_hex || random_data_length > 0 ||
+		    interval != SOCK_SEND_DATA_INTERVAL_NONE || packet_number_prefix) {
+			mosh_error("--msg_ack can only be used with string data (-d)");
+			return -EINVAL;
+		}
+
+		if (!socket_info->msg_ack) {
+			k_work_init(&socket_info->msg_ack_work, sock_msg_ack_work_handler);
+			socket_info->msg_ack = true;
+		}
+		if (data_out_length == 0) {
+			mosh_print("Message ACK mode enabled for socket id=%d", socket_id);
+			return 0;
+		}
+
+		snprintf(data_out_msg, sizeof(data_out_msg), "%s-%u", data,
+			 (unsigned int)++socket_info->msg_id);
+		data_out = (uint8_t *)data_out_msg;
+		data_out_length = strlen(data_out_msg);
 	}
 
 	if ((flags & MSG_WAITACK) && !blocking) {
@@ -1049,6 +1093,43 @@ int sock_send_data(
 	return 0;
 }
 
+/* Handles "<data>-<id>" by replying "ACK-<id>", and "ACK[-<id>]" by reporting delivery.
+ * A bare "ACK" is reported for the last sent message. ACKs are never replied to.
+ */
+static void sock_msg_ack_handle(struct sock_info *socket_info, const char *data)
+{
+	const char *id_str;
+	char *end;
+	unsigned long id;
+
+	if (strncmp(data, "ACK", 3) == 0) {
+		if (data[3] == '-') {
+			id = strtoul(data + 4, &end, 10);
+			if (end != data + 4) {
+				mosh_print("Message %lu delivered", id);
+				return;
+			}
+		}
+		if (socket_info->msg_id > 0) {
+			mosh_print("Message %u delivered", (unsigned int)socket_info->msg_id);
+		}
+		return;
+	}
+
+	id_str = strrchr(data, '-');
+	if (id_str == NULL) {
+		return;
+	}
+
+	id = strtoul(id_str + 1, &end, 10);
+	if (end == id_str + 1) {
+		return;
+	}
+
+	snprintf(socket_info->msg_ack_str, sizeof(socket_info->msg_ack_str), "ACK-%lu", id);
+	k_work_submit_to_queue(&mosh_common_work_q, &socket_info->msg_ack_work);
+}
+
 static void sock_handle_poll_events(int socket_id, int poll_revents)
 {
 	struct sock_info *socket_info;
@@ -1104,6 +1185,9 @@ static void sock_handle_poll_events(int socket_id, int poll_revents)
 				} else { /* SOCK_RECV_PRINT_FORMAT_STR */
 					mosh_print("\t%s", sock_receive_buffer);
 				}
+			}
+			if (socket_info->msg_ack) {
+				sock_msg_ack_handle(socket_info, sock_receive_buffer);
 			}
 			memset(sock_receive_buffer, '\0', SOCK_RECEIVE_BUFFER_SIZE);
 		}
