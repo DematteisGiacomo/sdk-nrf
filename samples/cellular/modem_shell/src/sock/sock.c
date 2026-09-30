@@ -935,7 +935,7 @@ int sock_send_data(
 			return 0;
 		}
 
-		snprintf(data_out_msg, sizeof(data_out_msg), "%s-%u", data,
+		snprintf(data_out_msg, sizeof(data_out_msg), "%s|%u", data,
 			 (unsigned int)++socket_info->msg_id);
 		data_out = (uint8_t *)data_out_msg;
 		data_out_length = strlen(data_out_msg);
@@ -1093,8 +1093,9 @@ int sock_send_data(
 	return 0;
 }
 
-/* Handles "<data>-<id>" by replying "ACK-<id>", and "ACK[-<id>]" by reporting delivery.
+/* Handles "<data>|<id>" by replying "ACK-<id>", and "ACK[-<id>]" by reporting delivery.
  * A bare "ACK" is reported for the last sent message. ACKs are never replied to.
+ * Any id received from the server overrides the local id, next sent message uses id + 1.
  */
 static void sock_msg_ack_handle(struct sock_info *socket_info, const char *data)
 {
@@ -1107,6 +1108,7 @@ static void sock_msg_ack_handle(struct sock_info *socket_info, const char *data)
 			id = strtoul(data + 4, &end, 10);
 			if (end != data + 4) {
 				mosh_print("Message %lu delivered", id);
+				socket_info->msg_id = id;
 				return;
 			}
 		}
@@ -1116,7 +1118,7 @@ static void sock_msg_ack_handle(struct sock_info *socket_info, const char *data)
 		return;
 	}
 
-	id_str = strrchr(data, '-');
+	id_str = strrchr(data, '|');
 	if (id_str == NULL) {
 		return;
 	}
@@ -1125,6 +1127,8 @@ static void sock_msg_ack_handle(struct sock_info *socket_info, const char *data)
 	if (end == id_str + 1) {
 		return;
 	}
+
+	socket_info->msg_id = id;
 
 	snprintf(socket_info->msg_ack_str, sizeof(socket_info->msg_ack_str), "ACK-%lu", id);
 	k_work_submit_to_queue(&mosh_common_work_q, &socket_info->msg_ack_work);

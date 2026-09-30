@@ -126,8 +126,8 @@ static const char sock_send_usage_str[] =
 	"                            if required by the network protocol. This is not valid\n"
 	"                            when -B0 (non-blocking mode) is used.\n"
 	"      --msg_ack             Enable message ACK mode for the socket. Given data (-d)\n"
-	"                            is sent as '<data>-<id>' with a sequential id.\n"
-	"                            Received '<data>-<id>' is replied with 'ACK-<id>' and\n"
+	"                            is sent as '<data>|<id>' with a sequential id.\n"
+	"                            Received '<data>|<id>' is replied with 'ACK-<id>' and\n"
 	"                            received 'ACK-<id>' is reported as delivered.\n"
 	"                            Without -d, only enables the mode (receiving side).\n"
 	"  -h, --help,               Shows this help information";
