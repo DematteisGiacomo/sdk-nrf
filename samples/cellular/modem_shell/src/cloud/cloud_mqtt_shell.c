@@ -7,8 +7,12 @@
 #include <stdlib.h>
 #include <zephyr/kernel.h>
 #include <net/nrf_cloud.h>
+#include <net/nrf_cloud_codec.h>
 #include <nrf_cloud_fsm.h>
 #include <zephyr/shell/shell.h>
+#if defined(CONFIG_DATE_TIME)
+#include <date_time.h>
+#endif
 #include "mosh_print.h"
 
 #define CLOUD_CMD_MAX_LENGTH 150
@@ -215,11 +219,92 @@ static void cmd_cloud_disconnect(const struct shell *shell, size_t argc, char **
 	}
 }
 
+static int cloud_location_args_parse(size_t argc, char **argv, struct nrf_cloud_gnss_pvt *pvt)
+{
+	char *end;
+
+	pvt->lat = strtod(argv[1], &end);
+	if (*end != '\0' || pvt->lat < -90.0 || pvt->lat > 90.0) {
+		mosh_error("Invalid latitude: %s", argv[1]);
+		return -EINVAL;
+	}
+
+	pvt->lon = strtod(argv[2], &end);
+	if (*end != '\0' || pvt->lon < -180.0 || pvt->lon > 180.0) {
+		mosh_error("Invalid longitude: %s", argv[2]);
+		return -EINVAL;
+	}
+
+	if (argc > 3) {
+		pvt->accuracy = strtof(argv[3], &end);
+		if (*end != '\0' || pvt->accuracy < 0.0f) {
+			mosh_error("Invalid accuracy: %s", argv[3]);
+			return -EINVAL;
+		}
+	}
+
+	return 0;
+}
+
+static int cmd_cloud_location(const struct shell *shell, size_t argc, char **argv)
+{
+	ARG_UNUSED(shell);
+
+	int err;
+	struct nrf_cloud_gnss_data gnss = {
+		.type = NRF_CLOUD_GNSS_TYPE_PVT,
+		.ts_ms = NRF_CLOUD_NO_TIMESTAMP,
+	};
+	NRF_CLOUD_OBJ_JSON_DEFINE(msg_obj);
+	struct nrf_cloud_tx_data mqtt_msg = {
+		.obj = &msg_obj,
+		.topic_type = NRF_CLOUD_TOPIC_MESSAGE,
+		.qos = MQTT_QOS_1_AT_LEAST_ONCE,
+	};
+
+	err = cloud_location_args_parse(argc, argv, &gnss.pvt);
+	if (err) {
+		return err;
+	}
+
+#if defined(CONFIG_DATE_TIME)
+	if (date_time_now(&gnss.ts_ms)) {
+		gnss.ts_ms = NRF_CLOUD_NO_TIMESTAMP;
+	}
+#endif
+
+	err = nrf_cloud_obj_gnss_msg_create(&msg_obj, &gnss);
+	if (err) {
+		mosh_error("Encoding location message failed, error: %d", err);
+		return err;
+	}
+
+	err = nrf_cloud_send(&mqtt_msg);
+	(void)nrf_cloud_obj_free(&msg_obj);
+	if (err == -EACCES) {
+		mosh_error("Not connected to nRF Cloud");
+		return err;
+	} else if (err) {
+		mosh_error("Sending location to nRF Cloud failed, error: %d", err);
+		return err;
+	}
+
+	mosh_print("Location sent to nRF Cloud: lat %.06f, lon %.06f, accuracy %.01f m",
+		   gnss.pvt.lat, gnss.pvt.lon, (double)gnss.pvt.accuracy);
+
+	return 0;
+}
+
 SHELL_STATIC_SUBCMD_SET_CREATE(
 	sub_cloud,
 	SHELL_CMD_ARG(connect, NULL, "Establish MQTT connection to nRF Cloud.", cmd_cloud_connect,
 		      1, 0),
 	SHELL_CMD_ARG(disconnect, NULL, "Disconnect from nRF Cloud.", cmd_cloud_disconnect, 1, 0),
+	SHELL_CMD_ARG(location, NULL,
+		      "<latitude> <longitude> [<accuracy>]\n"
+		      "Send location to nRF Cloud as a GNSS (PVT) message. Latitude and longitude "
+		      "in degrees, accuracy in meters (default: 0).",
+		      cmd_cloud_location, 3, 1),
 	SHELL_SUBCMD_SET_END
 );
 
