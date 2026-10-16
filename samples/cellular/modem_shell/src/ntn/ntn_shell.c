@@ -64,7 +64,7 @@ static int cmd_location_set(const struct shell *shell, size_t argc, char **argv)
 		return -EINVAL;
 	}
 
-	err = ntn_location_set(latitude, longitude, altitude, validity);
+	err = mosh_ntn_location_set(latitude, longitude, altitude, validity);
 	if (err != 0) {
 		mosh_error("set: failed to set location (err %d)", err);
 		return -ENOEXEC;
@@ -77,7 +77,7 @@ static int cmd_location_invalidate(const struct shell *shell, size_t argc, char 
 {
 	int err;
 
-	err = ntn_location_invalidate();
+	err = mosh_ntn_location_invalidate();
 	if (err != 0) {
 		mosh_error("invalidate: failed to invalidate location (err %d)", err);
 		return -ENOEXEC;
